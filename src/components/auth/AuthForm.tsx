@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/use-toast';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AuthFormProps {
   role: 'customer' | 'owner';
@@ -88,6 +89,28 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, onSuccess, onRoleChange }) =>
       setIsLoading(false);
     }
   };
+  
+  // For development purposes - allow bypassing email verification
+  const handleDevelopmentLogin = async () => {
+    setIsLoading(true);
+    try {
+      await signIn(signupEmail, signupPassword);
+      toast({
+        title: "Development login successful!",
+        description: `You're now logged in as a ${role}`,
+      });
+      onSuccess();
+    } catch (error: any) {
+      console.error('Development login error:', error);
+      toast({
+        title: "Login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-food-gray">
@@ -145,11 +168,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, onSuccess, onRoleChange }) =>
                 {isLoading ? 'Logging in...' : 'Login'}
               </Button>
               
-              <div className="text-center mt-2">
-                <p className="text-sm text-gray-600">
-                  Having trouble logging in? Make sure you've verified your email.
-                </p>
-              </div>
+              <Alert variant="default" className="bg-blue-50 border-blue-200">
+                <Info className="h-4 w-4 text-blue-500" />
+                <AlertDescription className="text-sm text-blue-700">
+                  Not receiving verification emails? For testing, you may need to disable email verification in Supabase.
+                </AlertDescription>
+              </Alert>
             </form>
           </TabsContent>
           
@@ -166,9 +190,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, onSuccess, onRoleChange }) =>
                 <p className="text-gray-600">
                   Please check your inbox and click the link to activate your account.
                 </p>
-                <p className="text-sm text-gray-500 mt-4">
-                  Can't find the email? Check your spam folder or try signing up again.
-                </p>
+
+                <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-left mt-4">
+                  <AlertCircle className="h-4 w-4 text-yellow-500" />
+                  <AlertDescription className="text-sm text-yellow-700">
+                    If you don't receive the email, please check your spam folder. For development purposes, you can try 
+                    to login anyway (may require disabling email confirmation in Supabase).
+                  </AlertDescription>
+                </Alert>
+                
                 <div className="pt-4">
                   <Button 
                     variant="outline"
@@ -182,6 +212,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, onSuccess, onRoleChange }) =>
                     style={{ backgroundColor: role === 'customer' ? '#FF5A1F' : '#D70F64' }}
                   >
                     Go to Login
+                  </Button>
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-500 mb-2">Development options:</p>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleDevelopmentLogin}
+                  >
+                    Try to login without verification
                   </Button>
                 </div>
               </div>
@@ -233,12 +274,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ role, onSuccess, onRoleChange }) =>
                   />
                 </div>
                 
-                <div className="bg-blue-50 p-3 rounded-md flex items-start space-x-2 text-sm">
-                  <AlertCircle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-blue-700">
-                    After signup, you'll receive a verification email. Click the link in that email to activate your account.
-                  </p>
-                </div>
+                <Alert variant="default" className="bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-500" />
+                  <AlertDescription className="text-sm text-blue-700">
+                    After signup, you'll need to verify your email before logging in. For development, you might need to disable email verification in Supabase.
+                  </AlertDescription>
+                </Alert>
                 
                 <Button 
                   type="submit" 
