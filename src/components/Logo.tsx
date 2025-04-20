@@ -37,7 +37,7 @@ const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true }) => {
       </div>
       {showText && (
         <span className={`font-heading font-bold ${textSize[size]} text-food-orange`}>
-          GrubHub
+          Foodies
         </span>
       )}
     </div>
