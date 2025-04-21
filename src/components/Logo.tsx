@@ -1,12 +1,13 @@
 
 import React from 'react';
-import { Image } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
   showText?: boolean;
 }
 
+// Update Logo to Nashik branding: Pin icon & "Foodies Nashik"
 const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true }) => {
   const logoSize = {
     sm: 'w-8 h-8',
@@ -23,11 +24,11 @@ const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true }) => {
   return (
     <div className="flex items-center gap-2">
       <div className={`${logoSize[size]} flex items-center justify-center bg-food-orange rounded-full`}>
-        <Image size={size === "sm" ? 24 : size === "lg" ? 40 : 32} color="white" />
+        <MapPin size={size === "sm" ? 24 : size === "lg" ? 40 : 32} color="white" />
       </div>
       {showText && (
         <span className={`font-heading font-bold ${textSize[size]} text-food-orange`}>
-          Foodies
+          Foodies Nashik
         </span>
       )}
     </div>
@@ -35,3 +36,4 @@ const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true }) => {
 };
 
 export default Logo;
+

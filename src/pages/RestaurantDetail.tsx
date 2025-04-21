@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -149,11 +148,20 @@ const RestaurantDetail = () => {
     navigate('/checkout');
   };
   
+  // Nashik as the fixed user location
+  const userLocationCity = "Nashik";
+
   return (
     <div className="min-h-screen bg-gray-50">
       <CustomerHeader />
       
       <div className="container mx-auto px-4 py-6">
+        {/* Show current city */}
+        <div className="flex items-center mb-4 gap-2 text-food-orange">
+          <MapPin className="w-5 h-5" />
+          <span className="font-semibold text-lg">Your Location: {userLocationCity}</span>
+        </div>
+        
         {isLoadingRestaurant ? (
           <div className="space-y-4">
             <Skeleton className="h-56 w-full" />

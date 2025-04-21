@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerHeader from '@/components/customer/CustomerHeader';
@@ -13,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Banknote, ArrowLeft } from 'lucide-react';
+import { CreditCard, Banknote, ArrowLeft, MapPin } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 const Checkout = () => {
@@ -36,6 +35,9 @@ const Checkout = () => {
   const taxes = totalAmount * 0.05;
   const totalPayable = totalAmount + deliveryFee + taxes;
   
+  const restaurantAddress = cartItems.length > 0 ? cartItems[0].restaurantName : "";
+  const userLocationCity = "Nashik";
+
   const handleSubmitOrder = async () => {
     if (!user) {
       toast({
@@ -90,7 +92,6 @@ const Checkout = () => {
     setIsSubmitting(true);
     
     try {
-      // Convert cartItems to a format compatible with JSON storage
       const itemsForStorage = cartItems.map(item => ({
         id: item.id,
         name: item.name,
@@ -101,7 +102,6 @@ const Checkout = () => {
         isAvailable: item.isAvailable
       }));
       
-      // Create the order in the database
       const { data, error } = await supabase
         .from('orders')
         .insert({
@@ -115,7 +115,7 @@ const Checkout = () => {
           user_name: user.user_metadata?.full_name || 'Customer',
           upi_id: paymentMethod === 'UPI' ? upiId : null,
           upi_transaction_id: paymentMethod === 'UPI' ? upiTransactionId : null,
-          scheduled_time: new Date(Date.now() + 30 * 60000).toISOString(), // 30 mins from now
+          scheduled_time: new Date(Date.now() + 30 * 60000).toISOString(),
           type: orderType,
           status: 'pending',
           delivery_address: orderType === 'delivery' ? deliveryAddress : null,
@@ -126,7 +126,6 @@ const Checkout = () => {
       
       if (error) throw error;
       
-      // Send real-time notification to restaurant
       const notification = {
         order_id: data[0].id,
         restaurant_id: cartItems[0].restaurantId,
@@ -134,7 +133,6 @@ const Checkout = () => {
         created_at: new Date().toISOString(),
       };
       
-      // Use Supabase Realtime to notify restaurant
       await supabase.channel('orders')
         .send({
           type: 'broadcast',
@@ -147,10 +145,8 @@ const Checkout = () => {
         description: "Your order has been sent to the restaurant",
       });
       
-      // Clear the cart
       clearCart();
       
-      // Navigate to the confirmation page or back to home
       navigate('/');
       
     } catch (error: any) {
@@ -175,8 +171,6 @@ const Checkout = () => {
       return;
     }
     
-    // In a real app, this would verify the transaction with a payment gateway
-    // For this demo, we'll just simulate success
     handleSubmitOrder();
   };
   
@@ -213,10 +207,23 @@ const Checkout = () => {
         
         <h1 className="text-2xl font-bold mb-6">Checkout</h1>
         
+        <div className="flex flex-wrap md:flex-nowrap gap-4 mb-4">
+          <div className="flex items-center gap-2 text-food-orange">
+            <MapPin className="w-5 h-5" />
+            <span className="font-semibold text-lg">Your Location: {userLocationCity}</span>
+          </div>
+          {cartItems.length > 0 && (
+            <div className="flex items-center gap-2 text-gray-700">
+              <MapPin className="w-5 h-5 text-gray-400" />
+              <span>
+                Restaurant: <span className="font-semibold">{cartItems[0].restaurantName}</span>
+              </span>
+            </div>
+          )}
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Left Column - Order Details */}
           <div className="md:col-span-2 space-y-6">
-            {/* Delivery/Pickup/Dine-in Details */}
             <Card>
               <CardHeader>
                 <CardTitle>
@@ -290,7 +297,6 @@ const Checkout = () => {
               </CardContent>
             </Card>
             
-            {/* Payment Method */}
             <Card>
               <CardHeader>
                 <CardTitle>Payment Method</CardTitle>
@@ -364,7 +370,6 @@ const Checkout = () => {
             </Card>
           </div>
           
-          {/* Right Column - Order Summary */}
           <div>
             <Card>
               <CardHeader>
@@ -375,24 +380,20 @@ const Checkout = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Items */}
-                  <div className="space-y-2">
-                    {cartItems.map((item) => (
-                      <div key={item.id} className="flex justify-between text-sm">
-                        <span>
-                          {item.quantity} × {item.name}
-                          {item.isAvailable === false && (
-                            <span className="text-xs text-red-500 ml-1">(Unavailable)</span>
-                          )}
-                        </span>
-                        <span>₹{(item.price * item.quantity).toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {cartItems.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span>
+                        {item.quantity} × {item.name}
+                        {item.isAvailable === false && (
+                          <span className="text-xs text-red-500 ml-1">(Unavailable)</span>
+                        )}
+                      </span>
+                      <span>₹{(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
                   
                   <Separator />
                   
-                  {/* Subtotal */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Subtotal</span>
@@ -414,7 +415,6 @@ const Checkout = () => {
                   
                   <Separator />
                   
-                  {/* Total */}
                   <div className="flex justify-between font-bold">
                     <span>Total</span>
                     <span>₹{totalPayable.toFixed(2)}</span>
