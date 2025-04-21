@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +28,30 @@ const RestaurantList: React.FC<RestaurantListProps> = ({ filterType, searchQuery
   const navigate = useNavigate();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([
     {
-      id: 'rest1',
+      id: 'sweet-tooth',
+      name: 'Sweet Tooth',
+      image: 'https://images.unsplash.com/photo-1587314168485-3236d6710814?ixid=MnwxMjA3fDB8MHxzZWFyY2h8NXx8ZGVzc2VydHxlbnwwfHwwfHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+      cuisine: ['Desserts', 'Bakery', 'Ice Cream'],
+      rating: 4.8,
+      deliveryTime: '20-30 mins',
+      distance: '0.5 km',
+      priceRange: '₹₹',
+      offer: 'Buy 1 Get 1 on selected items',
+      isPopular: true,
+    },
+    {
+      id: 'south-spice',
+      name: 'South Spice',
+      image: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?ixid=MnwxMjA3fDB8MHxzZWFyY2h8MTB8fHJlc3RhdXJhbnR8ZW58MHx8MHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+      cuisine: ['South Indian', 'Kerala', 'Tamil'],
+      rating: 4.2,
+      deliveryTime: '25-35 mins',
+      distance: '0.8 km',
+      priceRange: '₹',
+      isPopular: false,
+    },
+    {
+      id: 'tasty-delights',
       name: 'Tasty Delights',
       image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixid=MnwxMjA3fDB8MHxzZWFyY2h8Mnx8cmVzdGF1cmFudHxlbnwwfHwwfHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
       cuisine: ['North Indian', 'Mughlai', 'Chinese'],
@@ -41,18 +63,18 @@ const RestaurantList: React.FC<RestaurantListProps> = ({ filterType, searchQuery
       isPopular: true,
     },
     {
-      id: 'rest2',
-      name: 'South Spice',
-      image: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?ixid=MnwxMjA3fDB8MHxzZWFyY2h8MTB8fHJlc3RhdXJhbnR8ZW58MHx8MHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-      cuisine: ['South Indian', 'Kerala', 'Tamil'],
-      rating: 4.2,
+      id: 'healthy-bites',
+      name: 'Healthy Bites',
+      image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?ixid=MnwxMjA3fDB8MHxzZWFyY2h8MTB8fGhlYWx0aHklMjBmb29kfGVufDB8fDB8fA%3D%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
+      cuisine: ['Salads', 'Healthy', 'Continental'],
+      rating: 4.3,
       deliveryTime: '25-35 mins',
-      distance: '0.8 km',
-      priceRange: '₹',
+      distance: '1.8 km',
+      priceRange: '₹₹₹',
       isPopular: false,
     },
     {
-      id: 'rest3',
+      id: 'pizza-paradise',
       name: 'Pizza Paradise',
       image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?ixid=MnwxMjA3fDB8MHxzZWFyY2h8MXx8cGl6emF8ZW58MHx8MHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
       cuisine: ['Italian', 'Fast Food', 'Beverages'],
@@ -64,7 +86,7 @@ const RestaurantList: React.FC<RestaurantListProps> = ({ filterType, searchQuery
       isPopular: true,
     },
     {
-      id: 'rest4',
+      id: 'biryani-house',
       name: 'Biryani House',
       image: 'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?ixid=MnwxMjA3fDB8MHxzZWFyY2h8NHx8YmlyeWFuaXxlbnwwfHwwfHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
       cuisine: ['Biryani', 'Hyderabadi', 'Mughlai'],
@@ -75,38 +97,13 @@ const RestaurantList: React.FC<RestaurantListProps> = ({ filterType, searchQuery
       offer: 'Free delivery on orders above ₹300',
       isPopular: true,
     },
-    {
-      id: 'rest5',
-      name: 'Healthy Bites',
-      image: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?ixid=MnwxMjA3fDB8MHxzZWFyY2h8MTB8fGhlYWx0aHklMjBmb29kfGVufDB8fDB8fA%3D%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-      cuisine: ['Salads', 'Healthy', 'Continental'],
-      rating: 4.3,
-      deliveryTime: '25-35 mins',
-      distance: '1.8 km',
-      priceRange: '₹₹₹',
-      isPopular: false,
-    },
-    {
-      id: 'rest6',
-      name: 'Sweet Tooth',
-      image: 'https://images.unsplash.com/photo-1587314168485-3236d6710814?ixid=MnwxMjA3fDB8MHxzZWFyY2h8NXx8ZGVzc2VydHxlbnwwfHwwfHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-      cuisine: ['Desserts', 'Bakery', 'Ice Cream'],
-      rating: 4.8,
-      deliveryTime: '20-30 mins',
-      distance: '0.5 km',
-      priceRange: '₹₹',
-      offer: 'Buy 1 Get 1 on selected items',
-      isPopular: true,
-    },
   ]);
   
   const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
   
   useEffect(() => {
-    // Filter restaurants based on the selected tab and search query
     let filtered = [...restaurants];
     
-    // Apply search filter if searchQuery exists
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(restaurant => 
@@ -115,21 +112,16 @@ const RestaurantList: React.FC<RestaurantListProps> = ({ filterType, searchQuery
       );
     }
     
-    // Apply tab filter
     if (filterType === 'nearby') {
-      // Sort by distance
       filtered.sort((a, b) => {
         const distA = parseFloat(a.distance.split(' ')[0]);
         const distB = parseFloat(b.distance.split(' ')[0]);
         return distA - distB;
       });
     } else if (filterType === 'popular') {
-      // Filter by popularity
       filtered = filtered.filter(r => r.isPopular);
-      // Then sort by rating
       filtered.sort((a, b) => b.rating - a.rating);
     } else if (filterType === 'offers') {
-      // Filter by offers
       filtered = filtered.filter(r => r.offer);
     }
     
