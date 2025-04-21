@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
 
 interface AuthContextType {
   user: User | null;
@@ -48,7 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, role: 'customer' | 'owner', fullName: string) => {
-    const { error } = await supabase.auth.signUp({
+    // Sign up without email verification
+    const { error, data } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -56,9 +58,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role,
           full_name: fullName,
         },
+        emailRedirectTo: window.location.origin,
       },
     });
+    
     if (error) throw error;
+    
+    // Auto-sign in after signup to bypass verification
+    if (data.user) {
+      try {
+        await signIn(email, password);
+        toast({
+          title: "Account created successfully",
+          description: "You've been automatically logged in",
+        });
+      } catch (signInError) {
+        console.error("Auto sign-in failed:", signInError);
+      }
+    }
   };
 
   const signOut = async () => {

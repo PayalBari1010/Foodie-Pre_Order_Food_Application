@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Logo from '../Logo';
-import { MapPin, ShoppingCart, User, Bell } from 'lucide-react';
+import { MapPin, ShoppingCart, User, Bell, Search as SearchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -13,63 +14,39 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  restaurantId: string;
-  restaurantName: string;
+interface CustomerHeaderProps {
+  onSearch?: (query: string) => void;
 }
 
-const CustomerHeader: React.FC = () => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: 'item1',
-      name: 'Paneer Butter Masala',
-      price: 249,
-      quantity: 1,
-      restaurantId: 'rest1',
-      restaurantName: 'Tasty Delights',
-    },
-    {
-      id: 'item2',
-      name: 'Butter Naan',
-      price: 30,
-      quantity: 2,
-      restaurantId: 'rest1',
-      restaurantName: 'Tasty Delights',
-    },
-  ]);
+const CustomerHeader: React.FC<CustomerHeaderProps> = ({ onSearch }) => {
+  const { cartItems, increaseQuantity, decreaseQuantity, removeFromCart, totalItems, totalAmount } = useCart();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   
+  const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState([
     { id: 1, text: "Your order has been confirmed", time: "5 mins ago" },
     { id: 2, text: "Special offer: 20% off on your next order", time: "2 hours ago" },
   ]);
   
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  
-  const increaseQuantity = (itemId: string) => {
-    setCartItems(cartItems.map(item => 
-      item.id === itemId 
-        ? { ...item, quantity: item.quantity + 1 } 
-        : item
-    ));
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onSearch) {
+      onSearch(searchQuery);
+    }
   };
   
-  const decreaseQuantity = (itemId: string) => {
-    setCartItems(cartItems.map(item => 
-      item.id === itemId && item.quantity > 1
-        ? { ...item, quantity: item.quantity - 1 } 
-        : item
-    ));
-  };
-  
-  const removeItem = (itemId: string) => {
-    setCartItems(cartItems.filter(item => item.id !== itemId));
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   return (
@@ -77,7 +54,28 @@ const CustomerHeader: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-            <Logo size="sm" showText={true} />
+            <Link to="/">
+              <Logo size="sm" showText={true} />
+            </Link>
+          </div>
+          
+          <div className="hidden md:flex flex-1 mx-8">
+            <form onSubmit={handleSearchSubmit} className="w-full max-w-lg relative">
+              <Input
+                type="text"
+                placeholder="Search for restaurants or dishes..."
+                className="w-full pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Button 
+                type="submit"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 px-3 text-xs bg-food-orange hover:bg-food-orange/90"
+              >
+                Search
+              </Button>
+            </form>
           </div>
           
           <div className="flex items-center">
@@ -150,12 +148,15 @@ const CustomerHeader: React.FC = () => {
                         <p className="font-medium">{cartItems[0].restaurantName}</p>
                       </div>
                       
-                      <div className="space-y-4 mb-6">
+                      <div className="space-y-4 mb-6 max-h-[calc(100vh-300px)] overflow-y-auto">
                         {cartItems.map((item) => (
                           <div key={item.id} className="flex justify-between items-center border-b pb-4">
                             <div>
                               <p className="font-medium">{item.name}</p>
                               <p className="text-sm text-gray-500">₹{item.price.toFixed(2)}</p>
+                              {item.isAvailable === false && (
+                                <p className="text-xs text-red-500">Currently unavailable</p>
+                              )}
                             </div>
                             <div className="flex items-center">
                               <Button
@@ -172,6 +173,7 @@ const CustomerHeader: React.FC = () => {
                                 size="icon"
                                 className="h-7 w-7"
                                 onClick={() => increaseQuantity(item.id)}
+                                disabled={item.isAvailable === false}
                               >
                                 +
                               </Button>
@@ -179,7 +181,7 @@ const CustomerHeader: React.FC = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 ml-2 text-red-500"
-                                onClick={() => removeItem(item.id)}
+                                onClick={() => removeFromCart(item.id)}
                               >
                                 ×
                               </Button>
@@ -210,7 +212,12 @@ const CustomerHeader: React.FC = () => {
                           </div>
                         </CardContent>
                         <CardFooter>
-                          <Button className="w-full bg-food-orange hover:bg-food-orange/90">
+                          <Button 
+                            className="w-full bg-food-orange hover:bg-food-orange/90"
+                            onClick={() => {
+                              navigate('/checkout');
+                            }}
+                          >
                             Proceed to Checkout
                           </Button>
                         </CardFooter>
@@ -235,7 +242,7 @@ const CustomerHeader: React.FC = () => {
                 <DropdownMenuItem>Addresses</DropdownMenuItem>
                 <DropdownMenuItem>Favorites</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Logout</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
