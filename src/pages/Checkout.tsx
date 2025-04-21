@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { CreditCard, Cash, ArrowLeft } from 'lucide-react';
+import { CreditCard, Banknote, ArrowLeft } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 const Checkout = () => {
@@ -79,13 +79,24 @@ const Checkout = () => {
     setIsSubmitting(true);
     
     try {
+      // Convert cartItems to a format compatible with JSON storage
+      const itemsForStorage = cartItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        restaurantId: item.restaurantId,
+        restaurantName: item.restaurantName,
+        isAvailable: item.isAvailable
+      }));
+      
       // Create the order in the database
       const { data, error } = await supabase
         .from('orders')
         .insert({
           user_id: user.id,
           restaurant_id: cartItems[0].restaurantId,
-          items: cartItems,
+          items: itemsForStorage,
           total_amount: totalPayable,
           payment_method: paymentMethod,
           payment_status: paymentMethod === 'UPI' ? 'completed' : 'pending',
@@ -235,7 +246,7 @@ const Checkout = () => {
                   <div className="flex items-center space-x-2 border rounded-md p-4">
                     <RadioGroupItem value="COD" id="cod" />
                     <Label htmlFor="cod" className="flex items-center font-medium cursor-pointer">
-                      <Cash className="mr-2 h-5 w-5 text-green-500" />
+                      <Banknote className="mr-2 h-5 w-5 text-green-500" />
                       Cash on Delivery
                     </Label>
                   </div>

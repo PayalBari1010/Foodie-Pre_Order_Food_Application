@@ -67,7 +67,7 @@ const CustomerDashboard: React.FC = () => {
                 Clear Search
               </Button>
             </div>
-            <RestaurantList filterType="search" searchQuery={searchResults} />
+            <RestaurantList filterType="nearby" searchQuery={searchResults} />
           </div>
         )}
         
