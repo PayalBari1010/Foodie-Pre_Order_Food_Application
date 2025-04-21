@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Clock, MapPin, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Restaurant {
   id: string;
@@ -21,9 +22,11 @@ interface Restaurant {
 
 interface RestaurantListProps {
   filterType: 'nearby' | 'popular' | 'offers';
+  searchQuery?: string;
 }
 
-const RestaurantList: React.FC<RestaurantListProps> = ({ filterType }) => {
+const RestaurantList: React.FC<RestaurantListProps> = ({ filterType, searchQuery }) => {
+  const navigate = useNavigate();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([
     {
       id: 'rest1',
@@ -100,9 +103,19 @@ const RestaurantList: React.FC<RestaurantListProps> = ({ filterType }) => {
   const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
   
   useEffect(() => {
-    // Filter restaurants based on the selected tab
+    // Filter restaurants based on the selected tab and search query
     let filtered = [...restaurants];
     
+    // Apply search filter if searchQuery exists
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(restaurant => 
+        restaurant.name.toLowerCase().includes(query) || 
+        restaurant.cuisine.some(item => item.toLowerCase().includes(query))
+      );
+    }
+    
+    // Apply tab filter
     if (filterType === 'nearby') {
       // Sort by distance
       filtered.sort((a, b) => {
@@ -121,13 +134,21 @@ const RestaurantList: React.FC<RestaurantListProps> = ({ filterType }) => {
     }
     
     setFilteredRestaurants(filtered);
-  }, [filterType, restaurants]);
+  }, [filterType, restaurants, searchQuery]);
+
+  const handleViewMenu = (restaurantId: string) => {
+    navigate(`/restaurant/${restaurantId}`);
+  };
 
   return (
     <div>
       {filteredRestaurants.length === 0 ? (
         <div className="bg-white rounded-lg p-8 text-center">
-          <p className="text-gray-500">No restaurants found for your criteria.</p>
+          {searchQuery ? (
+            <p className="text-gray-500">No restaurants found matching "{searchQuery}".</p>
+          ) : (
+            <p className="text-gray-500">No restaurants found for your criteria.</p>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -185,7 +206,10 @@ const RestaurantList: React.FC<RestaurantListProps> = ({ filterType }) => {
                 </CardContent>
                 
                 <CardFooter>
-                  <Button className="w-full bg-food-orange hover:bg-food-orange/90">
+                  <Button 
+                    className="w-full bg-food-orange hover:bg-food-orange/90"
+                    onClick={() => handleViewMenu(restaurant.id)}
+                  >
                     View Menu
                   </Button>
                 </CardFooter>
