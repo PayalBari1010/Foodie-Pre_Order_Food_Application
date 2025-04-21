@@ -10,6 +10,7 @@ export interface CartItem {
   restaurantId: string;
   restaurantName: string;
   isAvailable?: boolean;
+  orderType?: 'delivery' | 'pickup' | 'dine-in';
 }
 
 interface CartContextType {
@@ -64,6 +65,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (existingItemIndex >= 0) {
       const updatedItems = [...cartItems];
       updatedItems[existingItemIndex].quantity += 1;
+      // Update orderType if it changed
+      if (item.orderType && updatedItems[existingItemIndex].orderType !== item.orderType) {
+        updatedItems[existingItemIndex].orderType = item.orderType;
+      }
       setCartItems(updatedItems);
     } else {
       setCartItems([...cartItems, { ...item, quantity: 1 }]);

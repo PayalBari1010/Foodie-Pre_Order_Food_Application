@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useCart } from '@/contexts/CartContext';
 import CustomerHeader from '@/components/customer/CustomerHeader';
@@ -8,9 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { StarIcon, Clock, MapPin, X } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from '@/components/ui/use-toast';
 
 interface MenuItem {
   id: string;
@@ -38,8 +41,10 @@ interface Restaurant {
 
 const RestaurantDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { addToCart } = useCart();
+  const { addToCart, cartItems } = useCart();
+  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [orderType, setOrderType] = useState<'delivery' | 'pickup' | 'dine-in'>('delivery');
   
   // Fetch restaurant details
   const { data: restaurant, isLoading: isLoadingRestaurant } = useQuery({
@@ -94,6 +99,34 @@ const RestaurantDetail = () => {
   
   const handleAddToCart = (item: MenuItem) => {
     if (restaurant) {
+      // Check if there are items from another restaurant
+      if (cartItems.length > 0 && cartItems[0].restaurantId !== restaurant.id) {
+        toast({
+          title: "Items from another restaurant",
+          description: "Your cart has items from another restaurant. Would you like to clear it and add this item?",
+          action: (
+            <Button 
+              variant="destructive" 
+              onClick={() => {
+                addToCart({
+                  id: item.id,
+                  name: item.name,
+                  price: item.price,
+                  quantity: 1,
+                  restaurantId: restaurant.id,
+                  restaurantName: restaurant.name,
+                  isAvailable: item.is_available !== false, // Default to true if null
+                  orderType: orderType
+                });
+              }}
+            >
+              Clear & Add
+            </Button>
+          ),
+        });
+        return;
+      }
+      
       addToCart({
         id: item.id,
         name: item.name,
@@ -102,8 +135,18 @@ const RestaurantDetail = () => {
         restaurantId: restaurant.id,
         restaurantName: restaurant.name,
         isAvailable: item.is_available !== false, // Default to true if null
+        orderType: orderType
+      });
+
+      toast({
+        title: "Added to cart",
+        description: `${item.name} added to your cart`,
       });
     }
+  };
+
+  const handleProceedToCheckout = () => {
+    navigate('/checkout');
   };
   
   return (
@@ -185,6 +228,29 @@ const RestaurantDetail = () => {
                     )}
                   </div>
                 </div>
+                
+                {/* Order Type Selection */}
+                <div className="mt-6">
+                  <h3 className="font-medium mb-2">Select Order Type</h3>
+                  <RadioGroup 
+                    value={orderType} 
+                    onValueChange={(value) => setOrderType(value as 'delivery' | 'pickup' | 'dine-in')}
+                    className="flex space-x-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="delivery" id="delivery" />
+                      <Label htmlFor="delivery">Delivery</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="pickup" id="pickup" />
+                      <Label htmlFor="pickup">Pickup</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="dine-in" id="dine-in" />
+                      <Label htmlFor="dine-in">Dine-in</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
               </div>
             </div>
           )
@@ -217,6 +283,18 @@ const RestaurantDetail = () => {
                       {category}
                     </button>
                   ))}
+                </div>
+              )}
+              
+              {/* Checkout button for mobile */}
+              {cartItems.length > 0 && (
+                <div className="mt-4 block md:hidden">
+                  <Button 
+                    className="w-full bg-food-orange hover:bg-food-orange/90"
+                    onClick={handleProceedToCheckout}
+                  >
+                    Proceed to Checkout ({cartItems.length} {cartItems.length === 1 ? 'item' : 'items'})
+                  </Button>
                 </div>
               )}
             </div>
@@ -312,6 +390,24 @@ const RestaurantDetail = () => {
             )}
           </div>
         </div>
+        
+        {/* Sticky checkout button for desktop */}
+        {cartItems.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 hidden md:block">
+            <div className="container mx-auto flex justify-between items-center">
+              <div>
+                <span className="font-medium">{cartItems.length} {cartItems.length === 1 ? 'item' : 'items'} in cart</span>
+                <p className="text-sm text-gray-500">From {cartItems[0].restaurantName}</p>
+              </div>
+              <Button 
+                className="bg-food-orange hover:bg-food-orange/90"
+                onClick={handleProceedToCheckout}
+              >
+                Proceed to Checkout
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

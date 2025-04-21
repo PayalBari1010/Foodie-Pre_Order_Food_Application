@@ -29,8 +29,10 @@ const Checkout = () => {
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showUpiVerification, setShowUpiVerification] = useState(false);
+  const [tableNumber, setTableNumber] = useState('');
   
-  const deliveryFee = 40;
+  const orderType = cartItems.length > 0 ? cartItems[0].orderType || 'delivery' : 'delivery';
+  const deliveryFee = orderType === 'delivery' ? 40 : 0;
   const taxes = totalAmount * 0.05;
   const totalPayable = totalAmount + deliveryFee + taxes;
   
@@ -44,7 +46,7 @@ const Checkout = () => {
       return;
     }
     
-    if (!deliveryAddress) {
+    if (orderType === 'delivery' && !deliveryAddress) {
       toast({
         title: "Delivery address required",
         description: "Please provide a delivery address",
@@ -57,6 +59,15 @@ const Checkout = () => {
       toast({
         title: "Phone number required",
         description: "Please provide a contact number",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (orderType === 'dine-in' && !tableNumber) {
+      toast({
+        title: "Table number required",
+        description: "Please provide your table number",
         variant: "destructive",
       });
       return;
@@ -105,13 +116,32 @@ const Checkout = () => {
           upi_id: paymentMethod === 'UPI' ? upiId : null,
           upi_transaction_id: paymentMethod === 'UPI' ? upiTransactionId : null,
           scheduled_time: new Date(Date.now() + 30 * 60000).toISOString(), // 30 mins from now
-          type: 'delivery',
+          type: orderType,
           status: 'pending',
+          delivery_address: orderType === 'delivery' ? deliveryAddress : null,
+          table_number: orderType === 'dine-in' ? tableNumber : null,
+          notes: notes || null,
         })
         .select();
       
       if (error) throw error;
       
+      // Send real-time notification to restaurant
+      const notification = {
+        order_id: data[0].id,
+        restaurant_id: cartItems[0].restaurantId,
+        message: `New ${orderType} order from ${user.user_metadata?.full_name || 'Customer'}`,
+        created_at: new Date().toISOString(),
+      };
+      
+      // Use Supabase Realtime to notify restaurant
+      await supabase.channel('orders')
+        .send({
+          type: 'broadcast',
+          event: 'new_order',
+          payload: notification,
+        });
+        
       toast({
         title: "Order placed successfully!",
         description: "Your order has been sent to the restaurant",
@@ -186,22 +216,48 @@ const Checkout = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Left Column - Order Details */}
           <div className="md:col-span-2 space-y-6">
-            {/* Delivery Details */}
+            {/* Delivery/Pickup/Dine-in Details */}
             <Card>
               <CardHeader>
-                <CardTitle>Delivery Details</CardTitle>
+                <CardTitle>
+                  {orderType === 'delivery' 
+                    ? 'Delivery Details' 
+                    : orderType === 'pickup' 
+                      ? 'Pickup Details' 
+                      : 'Dine-in Details'
+                  }
+                </CardTitle>
+                <CardDescription>
+                  Order Type: {orderType.charAt(0).toUpperCase() + orderType.slice(1)}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="address">Delivery Address</Label>
-                  <Textarea 
-                    id="address" 
-                    placeholder="Enter your full delivery address"
-                    value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
+                {orderType === 'delivery' && (
+                  <div>
+                    <Label htmlFor="address">Delivery Address</Label>
+                    <Textarea 
+                      id="address" 
+                      placeholder="Enter your full delivery address"
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+                
+                {orderType === 'dine-in' && (
+                  <div>
+                    <Label htmlFor="table">Table Number</Label>
+                    <Input 
+                      id="table" 
+                      type="text" 
+                      placeholder="Enter your table number"
+                      value={tableNumber}
+                      onChange={(e) => setTableNumber(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                )}
                 
                 <div>
                   <Label htmlFor="phone">Phone Number</Label>
@@ -216,10 +272,16 @@ const Checkout = () => {
                 </div>
                 
                 <div>
-                  <Label htmlFor="notes">Delivery Instructions (Optional)</Label>
+                  <Label htmlFor="notes">Special Instructions (Optional)</Label>
                   <Textarea 
                     id="notes" 
-                    placeholder="Any special instructions for delivery"
+                    placeholder={
+                      orderType === 'delivery' 
+                        ? "Any special instructions for delivery" 
+                        : orderType === 'pickup' 
+                          ? "Any special instructions for pickup" 
+                          : "Any special requests for your table"
+                    }
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     className="mt-1"
@@ -247,7 +309,7 @@ const Checkout = () => {
                     <RadioGroupItem value="COD" id="cod" />
                     <Label htmlFor="cod" className="flex items-center font-medium cursor-pointer">
                       <Banknote className="mr-2 h-5 w-5 text-green-500" />
-                      Cash on Delivery
+                      {orderType === 'delivery' ? 'Cash on Delivery' : 'Pay at Restaurant'}
                     </Label>
                   </div>
                 </RadioGroup>
@@ -308,7 +370,7 @@ const Checkout = () => {
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
                 <CardDescription>
-                  Order from {cartItems[0].restaurantName}
+                  {orderType.charAt(0).toUpperCase() + orderType.slice(1)} from {cartItems[0].restaurantName}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -337,10 +399,12 @@ const Checkout = () => {
                       <span>₹{totalAmount.toFixed(2)}</span>
                     </div>
                     
-                    <div className="flex justify-between text-sm">
-                      <span>Delivery Fee</span>
-                      <span>₹{deliveryFee.toFixed(2)}</span>
-                    </div>
+                    {orderType === 'delivery' && (
+                      <div className="flex justify-between text-sm">
+                        <span>Delivery Fee</span>
+                        <span>₹{deliveryFee.toFixed(2)}</span>
+                      </div>
+                    )}
                     
                     <div className="flex justify-between text-sm">
                       <span>Taxes</span>
