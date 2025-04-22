@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,12 +29,11 @@ interface Order {
   items: OrderItem[];
   total: number;
   status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
-  orderType: 'pickup' | 'dine-in' | 'delivery';
+  orderType: 'pickup' | 'dine-in';
   scheduledTime: string;
   paymentMethod: 'upi' | 'cod';
   paymentStatus: 'paid' | 'pending';
   createdAt: string;
-  delivery_address?: string | null;
   table_number?: string | null;
 }
 
@@ -87,7 +85,6 @@ const OrderManagement: React.FC = () => {
             paymentMethod: (newOrder.payment_method || 'cod') as Order['paymentMethod'],
             paymentStatus: (newOrder.payment_status || 'pending') as Order['paymentStatus'],
             createdAt: newOrder.created_at || new Date().toISOString(),
-            delivery_address: newOrder.delivery_address || null,
             table_number: newOrder.table_number || null,
           };
           
@@ -131,7 +128,6 @@ const OrderManagement: React.FC = () => {
       
       if (data && data.length > 0) {
         const formattedOrders = data.map(order => {
-          // Handle properties that might not exist in the type definition
           const orderAny = order as any;
           
           return {
@@ -146,7 +142,6 @@ const OrderManagement: React.FC = () => {
             paymentMethod: (order.payment_method || 'cod') as Order['paymentMethod'],
             paymentStatus: (order.payment_status || 'pending') as Order['paymentStatus'],
             createdAt: order.created_at || new Date().toISOString(),
-            delivery_address: orderAny.delivery_address || null,
             table_number: orderAny.table_number || null,
           };
         });
@@ -186,6 +181,7 @@ const OrderManagement: React.FC = () => {
             paymentMethod: 'cod',
             paymentStatus: 'pending',
             createdAt: '2025-04-20T12:15:00Z',
+            table_number: '5',
           },
         ]);
       }
@@ -364,14 +360,6 @@ const OrderManagement: React.FC = () => {
                           {order.paymentStatus === 'paid' ? 'Paid' : 'Payment Pending'}
                         </Badge>
                       </div>
-                      
-                      {/* Order details - address or table number */}
-                      {order.orderType === 'delivery' && order.delivery_address && (
-                        <div className="mt-2 bg-gray-50 p-3 rounded-md text-sm">
-                          <p className="font-medium">Delivery Address:</p>
-                          <p className="text-gray-600">{order.delivery_address}</p>
-                        </div>
-                      )}
                       
                       {order.orderType === 'dine-in' && order.table_number && (
                         <div className="mt-2 bg-gray-50 p-3 rounded-md text-sm">
