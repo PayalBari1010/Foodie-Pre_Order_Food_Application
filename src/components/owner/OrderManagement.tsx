@@ -87,8 +87,8 @@ const OrderManagement: React.FC = () => {
             paymentMethod: (newOrder.payment_method || 'cod') as Order['paymentMethod'],
             paymentStatus: (newOrder.payment_status || 'pending') as Order['paymentStatus'],
             createdAt: newOrder.created_at || new Date().toISOString(),
-            delivery_address: newOrder.delivery_address,
-            table_number: newOrder.table_number,
+            delivery_address: newOrder.delivery_address || null,
+            table_number: newOrder.table_number || null,
           };
           
           // Add new order to the state
@@ -130,21 +130,26 @@ const OrderManagement: React.FC = () => {
       }
       
       if (data && data.length > 0) {
-        const formattedOrders = data.map(order => ({
-          id: order.id,
-          customerName: order.user_name || 'Customer',
-          customerMobile: order.mobile_number || 'Not provided',
-          items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items,
-          total: order.total_amount || 0,
-          status: (order.status || 'pending') as Order['status'],
-          orderType: (order.type || 'pickup') as Order['orderType'],
-          scheduledTime: order.scheduled_time || new Date().toISOString(),
-          paymentMethod: (order.payment_method || 'cod') as Order['paymentMethod'],
-          paymentStatus: (order.payment_status || 'pending') as Order['paymentStatus'],
-          createdAt: order.created_at || new Date().toISOString(),
-          delivery_address: order.delivery_address,
-          table_number: order.table_number,
-        }));
+        const formattedOrders = data.map(order => {
+          // Handle properties that might not exist in the type definition
+          const orderAny = order as any;
+          
+          return {
+            id: order.id,
+            customerName: order.user_name || 'Customer',
+            customerMobile: order.mobile_number || 'Not provided',
+            items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items,
+            total: order.total_amount || 0,
+            status: (order.status || 'pending') as Order['status'],
+            orderType: (order.type || 'pickup') as Order['orderType'],
+            scheduledTime: order.scheduled_time || new Date().toISOString(),
+            paymentMethod: (order.payment_method || 'cod') as Order['paymentMethod'],
+            paymentStatus: (order.payment_status || 'pending') as Order['paymentStatus'],
+            createdAt: order.created_at || new Date().toISOString(),
+            delivery_address: orderAny.delivery_address || null,
+            table_number: orderAny.table_number || null,
+          };
+        });
         
         setOrders(formattedOrders);
       } else {
