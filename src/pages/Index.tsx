@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SplashScreen from '@/components/SplashScreen';
@@ -5,12 +6,40 @@ import RoleSelection from '@/components/RoleSelection';
 import AuthForm from '@/components/auth/AuthForm';
 import CustomerDashboard from '@/components/customer/CustomerDashboard';
 import OwnerDashboard from '@/components/owner/OwnerDashboard';
+import { supabase } from '@/integrations/supabase/client';
 
 const Index = () => {
   // App state machine
   const [appState, setAppState] = useState<'splash' | 'role-selection' | 'auth' | 'dashboard'>('splash');
   const [userRole, setUserRole] = useState<'customer' | 'owner' | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  
+  // Check if user is already authenticated
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setIsAuthenticated(true);
+        
+        // Try to determine if user is a restaurant owner or customer
+        const { data: ownerData } = await supabase
+          .from('restaurant_owners')
+          .select('*')
+          .eq('user_id', data.session.user.id)
+          .single();
+          
+        if (ownerData) {
+          setUserRole('owner');
+        } else {
+          setUserRole('customer');
+        }
+        
+        setAppState('dashboard');
+      }
+    };
+    
+    checkSession();
+  }, []);
   
   // Simulate splash screen and then show role selection
   useEffect(() => {

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -12,7 +12,9 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
-import { Clock } from 'lucide-react';
+import { Clock, Bell } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface OrderItem {
   name: string;
@@ -22,75 +24,177 @@ interface OrderItem {
 
 interface Order {
   id: string;
-  customerId: string;
+  customerId?: string;
   customerName: string;
   customerMobile: string;
   items: OrderItem[];
   total: number;
   status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
-  orderType: 'pickup' | 'dine-in';
+  orderType: 'pickup' | 'dine-in' | 'delivery';
   scheduledTime: string;
   paymentMethod: 'upi' | 'cod';
   paymentStatus: 'paid' | 'pending';
   createdAt: string;
+  delivery_address?: string | null;
+  table_number?: string | null;
 }
 
 const OrderManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('pending');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
   
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: 'ORD001',
-      customerId: 'CUST001',
-      customerName: 'Rahul Sharma',
-      customerMobile: '+91 98765 43210',
-      items: [
-        { name: 'Paneer Butter Masala', quantity: 1, price: 249 },
-        { name: 'Butter Naan', quantity: 2, price: 60 },
-      ],
-      total: 369,
-      status: 'pending',
-      orderType: 'pickup',
-      scheduledTime: '2025-04-20T12:30:00Z',
-      paymentMethod: 'upi',
-      paymentStatus: 'paid',
-      createdAt: '2025-04-20T11:45:00Z',
-    },
-    {
-      id: 'ORD002',
-      customerId: 'CUST002',
-      customerName: 'Priya Patel',
-      customerMobile: '+91 87654 32109',
-      items: [
-        { name: 'Masala Dosa', quantity: 2, price: 298 },
-        { name: 'Filter Coffee', quantity: 2, price: 80 },
-      ],
-      total: 378,
-      status: 'preparing',
-      orderType: 'dine-in',
-      scheduledTime: '2025-04-20T13:00:00Z',
-      paymentMethod: 'cod',
-      paymentStatus: 'pending',
-      createdAt: '2025-04-20T12:15:00Z',
-    },
-    {
-      id: 'ORD003',
-      customerId: 'CUST003',
-      customerName: 'Amit Kumar',
-      customerMobile: '+91 76543 21098',
-      items: [
-        { name: 'Chicken Biryani', quantity: 1, price: 299 },
-        { name: 'Raita', quantity: 1, price: 49 },
-      ],
-      total: 348,
-      status: 'completed',
-      orderType: 'pickup',
-      scheduledTime: '2025-04-20T11:00:00Z',
-      paymentMethod: 'upi',
-      paymentStatus: 'paid',
-      createdAt: '2025-04-20T10:30:00Z',
-    },
-  ]);
+  useEffect(() => {
+    // Initial fetch of orders
+    if (user) {
+      fetchOrders();
+    }
+    
+    // Setup real-time subscription for new orders
+    const channel = supabase
+      .channel('orders-channel')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+        },
+        (payload) => {
+          console.log('New order received:', payload);
+          const newOrder = payload.new as any;
+          
+          // Parse items if it's a string
+          if (typeof newOrder.items === 'string') {
+            try {
+              newOrder.items = JSON.parse(newOrder.items);
+            } catch (e) {
+              console.error('Failed to parse order items:', e);
+            }
+          }
+          
+          // Map Supabase order to our Order interface
+          const formattedOrder: Order = {
+            id: newOrder.id,
+            customerName: newOrder.user_name || 'Customer',
+            customerMobile: newOrder.mobile_number || 'Not provided',
+            items: newOrder.items || [],
+            total: newOrder.total_amount || 0,
+            status: newOrder.status || 'pending',
+            orderType: newOrder.type || 'pickup',
+            scheduledTime: newOrder.scheduled_time || new Date().toISOString(),
+            paymentMethod: newOrder.payment_method || 'cod',
+            paymentStatus: newOrder.payment_status || 'pending',
+            createdAt: newOrder.created_at || new Date().toISOString(),
+            delivery_address: newOrder.delivery_address,
+            table_number: newOrder.table_number,
+          };
+          
+          // Add new order to the state
+          setOrders(prevOrders => {
+            // Check if order already exists
+            if (prevOrders.some(order => order.id === formattedOrder.id)) {
+              return prevOrders;
+            }
+            // Add the new order
+            return [formattedOrder, ...prevOrders];
+          });
+          
+          // Show notification
+          toast({
+            title: "New Order Received!",
+            description: `New ${formattedOrder.orderType} order from ${formattedOrder.customerName}`,
+            duration: 5000,
+          });
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      // Cleanup subscription
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+  
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        const formattedOrders = data.map(order => ({
+          id: order.id,
+          customerName: order.user_name || 'Customer',
+          customerMobile: order.mobile_number || 'Not provided',
+          items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items,
+          total: order.total_amount || 0,
+          status: order.status || 'pending',
+          orderType: order.type || 'pickup',
+          scheduledTime: order.scheduled_time || new Date().toISOString(),
+          paymentMethod: order.payment_method || 'cod',
+          paymentStatus: order.payment_status || 'pending',
+          createdAt: order.created_at || new Date().toISOString(),
+          delivery_address: order.delivery_address,
+          table_number: order.table_number,
+        }));
+        
+        setOrders(formattedOrders);
+      } else {
+        // Load sample data if no orders from Supabase
+        setOrders([
+          {
+            id: 'ORD001',
+            customerName: 'Rahul Sharma',
+            customerMobile: '+91 98765 43210',
+            items: [
+              { name: 'Paneer Butter Masala', quantity: 1, price: 249 },
+              { name: 'Butter Naan', quantity: 2, price: 60 },
+            ],
+            total: 369,
+            status: 'pending',
+            orderType: 'pickup',
+            scheduledTime: '2025-04-20T12:30:00Z',
+            paymentMethod: 'upi',
+            paymentStatus: 'paid',
+            createdAt: '2025-04-20T11:45:00Z',
+          },
+          {
+            id: 'ORD002',
+            customerName: 'Priya Patel',
+            customerMobile: '+91 87654 32109',
+            items: [
+              { name: 'Masala Dosa', quantity: 2, price: 298 },
+              { name: 'Filter Coffee', quantity: 2, price: 80 },
+            ],
+            total: 378,
+            status: 'preparing',
+            orderType: 'dine-in',
+            scheduledTime: '2025-04-20T13:00:00Z',
+            paymentMethod: 'cod',
+            paymentStatus: 'pending',
+            createdAt: '2025-04-20T12:15:00Z',
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching orders:', error);
+      toast({
+        title: "Error fetching orders",
+        description: "Failed to fetch orders. Using sample data instead.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -131,15 +235,31 @@ const OrderManagement: React.FC = () => {
     return status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
   };
   
-  const updateOrderStatus = (orderId: string, newStatus: Order['status']) => {
-    setOrders(orders.map(order => 
-      order.id === orderId ? { ...order, status: newStatus } : order
-    ));
-    
-    toast({
-      title: "Order status updated",
-      description: `Order #${orderId} is now ${newStatus}`,
-    });
+  const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .eq('id', orderId);
+      
+      if (error) throw error;
+      
+      setOrders(orders.map(order => 
+        order.id === orderId ? { ...order, status: newStatus } : order
+      ));
+      
+      toast({
+        title: "Order status updated",
+        description: `Order #${orderId} is now ${newStatus}`,
+      });
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast({
+        title: "Failed to update status",
+        description: "There was an error updating the order status",
+        variant: "destructive",
+      });
+    }
   };
   
   const filteredOrders = activeTab === 'all' 
@@ -150,6 +270,15 @@ const OrderManagement: React.FC = () => {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Order Management</h2>
+        <Button 
+          onClick={fetchOrders} 
+          variant="outline" 
+          className="gap-2"
+          disabled={loading}
+        >
+          <Bell className="h-4 w-4" />
+          Refresh Orders
+        </Button>
       </div>
       
       <Tabs defaultValue="pending" className="w-full" onValueChange={setActiveTab}>
@@ -162,7 +291,11 @@ const OrderManagement: React.FC = () => {
         </TabsList>
         
         <div className="mt-6">
-          {filteredOrders.length === 0 ? (
+          {loading ? (
+            <div className="bg-gray-50 rounded-lg p-8 text-center">
+              <p className="text-gray-500">Loading orders...</p>
+            </div>
+          ) : filteredOrders.length === 0 ? (
             <div className="bg-gray-50 rounded-lg p-8 text-center">
               <p className="text-gray-500">No {activeTab !== 'all' ? activeTab : ''} orders found.</p>
             </div>
@@ -174,7 +307,7 @@ const OrderManagement: React.FC = () => {
                     <div className="flex justify-between items-start">
                       <div>
                         <CardTitle className="text-lg flex items-center">
-                          Order #{order.id}
+                          Order #{order.id.substring(0, 8)}
                           <Badge className={`ml-2 ${getStatusColor(order.status)}`}>
                             {order.status}
                           </Badge>
@@ -194,7 +327,7 @@ const OrderManagement: React.FC = () => {
                   </CardHeader>
                   
                   <CardContent>
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       <div className="flex justify-between text-sm mb-2">
                         <span className="font-medium">Items</span>
                         <span className="font-medium">Amount</span>
@@ -214,7 +347,7 @@ const OrderManagement: React.FC = () => {
                       
                       <div className="flex flex-wrap gap-2 mt-4">
                         <Badge variant="outline" className="text-xs">
-                          {order.orderType === 'pickup' ? 'Pickup' : 'Dine-in'}
+                          {order.orderType === 'pickup' ? 'Pickup' : order.orderType === 'dine-in' ? 'Dine-in' : 'Delivery'}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           Scheduled: {formatTime(order.scheduledTime)}
@@ -226,6 +359,20 @@ const OrderManagement: React.FC = () => {
                           {order.paymentStatus === 'paid' ? 'Paid' : 'Payment Pending'}
                         </Badge>
                       </div>
+                      
+                      {/* Order details - address or table number */}
+                      {order.orderType === 'delivery' && order.delivery_address && (
+                        <div className="mt-2 bg-gray-50 p-3 rounded-md text-sm">
+                          <p className="font-medium">Delivery Address:</p>
+                          <p className="text-gray-600">{order.delivery_address}</p>
+                        </div>
+                      )}
+                      
+                      {order.orderType === 'dine-in' && order.table_number && (
+                        <div className="mt-2 bg-gray-50 p-3 rounded-md text-sm">
+                          <p className="font-medium">Table Number: <span className="text-gray-600">{order.table_number}</span></p>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                   

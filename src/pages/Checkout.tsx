@@ -126,20 +126,6 @@ const Checkout = () => {
       
       if (error) throw error;
       
-      const notification = {
-        order_id: data[0].id,
-        restaurant_id: cartItems[0].restaurantId,
-        message: `New ${orderType} order from ${user.user_metadata?.full_name || 'Customer'}`,
-        created_at: new Date().toISOString(),
-      };
-      
-      await supabase.channel('orders')
-        .send({
-          type: 'broadcast',
-          event: 'new_order',
-          payload: notification,
-        });
-        
       toast({
         title: "Order placed successfully!",
         description: "Your order has been sent to the restaurant",
