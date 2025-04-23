@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -41,13 +42,49 @@ const OrderManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('pending');
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
   const { user } = useAuth();
   
   useEffect(() => {
-    // Initial fetch of orders
+    // Get restaurant ID for the logged-in owner
     if (user) {
-      fetchOrders();
+      getRestaurantId();
     }
+  }, [user]);
+  
+  useEffect(() => {
+    // Fetch orders when restaurant ID is available
+    if (restaurantId) {
+      fetchOrders();
+      // Setup real-time subscription for new orders
+      setupOrdersSubscription();
+    }
+  }, [restaurantId]);
+  
+  const getRestaurantId = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('restaurants')
+        .select('id')
+        .eq('owner_id', user?.id)
+        .single();
+      
+      if (error) throw error;
+      if (data) {
+        setRestaurantId(data.id);
+      }
+    } catch (error) {
+      console.error('Error fetching restaurant ID:', error);
+      toast({
+        title: "Error",
+        description: "Could not find your restaurant. Please set up your restaurant first.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const setupOrdersSubscription = () => {
+    if (!restaurantId) return;
     
     // Setup real-time subscription for new orders
     const channel = supabase
@@ -55,71 +92,125 @@ const OrderManagement: React.FC = () => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
           schema: 'public',
           table: 'orders',
+          filter: `restaurant_id=eq.${restaurantId}`,
         },
         (payload) => {
-          console.log('New order received:', payload);
-          const newOrder = payload.new as any;
+          console.log('Order change detected:', payload);
           
-          // Parse items if it's a string
-          if (typeof newOrder.items === 'string') {
-            try {
-              newOrder.items = JSON.parse(newOrder.items);
-            } catch (e) {
-              console.error('Failed to parse order items:', e);
-            }
+          // Handle different event types
+          switch (payload.eventType) {
+            case 'INSERT':
+              handleNewOrder(payload.new);
+              break;
+            case 'UPDATE':
+              handleOrderUpdate(payload.new);
+              break;
+            case 'DELETE':
+              handleOrderDelete(payload.old);
+              break;
           }
-          
-          // Map Supabase order to our Order interface
-          const formattedOrder: Order = {
-            id: newOrder.id,
-            customerName: newOrder.user_name || 'Customer',
-            customerMobile: newOrder.mobile_number || 'Not provided',
-            items: newOrder.items || [],
-            total: newOrder.total_amount || 0,
-            status: (newOrder.status || 'pending') as Order['status'],
-            orderType: (newOrder.type || 'pickup') as Order['orderType'],
-            scheduledTime: newOrder.scheduled_time || new Date().toISOString(),
-            paymentMethod: (newOrder.payment_method || 'cod') as Order['paymentMethod'],
-            paymentStatus: (newOrder.payment_status || 'pending') as Order['paymentStatus'],
-            createdAt: newOrder.created_at || new Date().toISOString(),
-            table_number: newOrder.table_number || null,
-          };
-          
-          // Add new order to the state
-          setOrders(prevOrders => {
-            // Check if order already exists
-            if (prevOrders.some(order => order.id === formattedOrder.id)) {
-              return prevOrders;
-            }
-            // Add the new order
-            return [formattedOrder, ...prevOrders];
-          });
-          
-          // Show notification
-          toast({
-            title: "New Order Received!",
-            description: `New ${formattedOrder.orderType} order from ${formattedOrder.customerName}`,
-            duration: 5000,
-          });
         }
       )
       .subscribe();
     
     return () => {
-      // Cleanup subscription
       supabase.removeChannel(channel);
     };
-  }, [user]);
+  };
+  
+  const handleNewOrder = (newOrderData: any) => {
+    try {
+      // Parse items if it's a string
+      let orderItems = newOrderData.items;
+      if (typeof orderItems === 'string') {
+        try {
+          orderItems = JSON.parse(orderItems);
+        } catch (e) {
+          console.error('Failed to parse order items:', e);
+        }
+      }
+      
+      // Map Supabase order to our Order interface
+      const formattedOrder: Order = {
+        id: newOrderData.id,
+        customerName: newOrderData.user_name || 'Customer',
+        customerMobile: newOrderData.mobile_number || 'Not provided',
+        items: orderItems || [],
+        total: newOrderData.total_amount || 0,
+        status: (newOrderData.status || 'pending') as Order['status'],
+        orderType: (newOrderData.type || 'pickup') as Order['orderType'],
+        scheduledTime: newOrderData.scheduled_time || new Date().toISOString(),
+        paymentMethod: (newOrderData.payment_method || 'cod') as Order['paymentMethod'],
+        paymentStatus: (newOrderData.payment_status || 'pending') as Order['paymentStatus'],
+        createdAt: newOrderData.created_at || new Date().toISOString(),
+        table_number: newOrderData.table_number || null,
+      };
+      
+      // Add new order to the state
+      setOrders(prevOrders => {
+        // Check if order already exists
+        if (prevOrders.some(order => order.id === formattedOrder.id)) {
+          return prevOrders;
+        }
+        // Add the new order
+        return [formattedOrder, ...prevOrders];
+      });
+      
+      // Play notification sound for new orders
+      const audio = new Audio('/notification.mp3');
+      audio.play().catch(e => console.error('Could not play notification sound:', e));
+      
+      // Show notification
+      toast({
+        title: "New Order Received!",
+        description: `New ${formattedOrder.orderType} order from ${formattedOrder.customerName}`,
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error('Error processing new order:', error);
+    }
+  };
+  
+  const handleOrderUpdate = (updatedOrderData: any) => {
+    try {
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === updatedOrderData.id 
+            ? {
+                ...order,
+                status: updatedOrderData.status || order.status,
+                paymentStatus: updatedOrderData.payment_status || order.paymentStatus,
+              } 
+            : order
+        )
+      );
+    } catch (error) {
+      console.error('Error handling order update:', error);
+    }
+  };
+  
+  const handleOrderDelete = (deletedOrderData: any) => {
+    try {
+      setOrders(prevOrders => 
+        prevOrders.filter(order => order.id !== deletedOrderData.id)
+      );
+    } catch (error) {
+      console.error('Error handling order deletion:', error);
+    }
+  };
   
   const fetchOrders = async () => {
+    if (!restaurantId) return;
+    
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('orders')
         .select('*')
+        .eq('restaurant_id', restaurantId)
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -130,11 +221,21 @@ const OrderManagement: React.FC = () => {
         const formattedOrders = data.map(order => {
           const orderAny = order as any;
           
+          // Parse items if it's a string
+          let orderItems = order.items;
+          if (typeof orderItems === 'string') {
+            try {
+              orderItems = JSON.parse(orderItems);
+            } catch (e) {
+              console.error('Failed to parse order items:', e);
+            }
+          }
+          
           return {
             id: order.id,
             customerName: order.user_name || 'Customer',
             customerMobile: order.mobile_number || 'Not provided',
-            items: typeof order.items === 'string' ? JSON.parse(order.items) : order.items,
+            items: orderItems || [],
             total: order.total_amount || 0,
             status: (order.status || 'pending') as Order['status'],
             orderType: (order.type || 'pickup') as Order['orderType'],
@@ -245,13 +346,14 @@ const OrderManagement: React.FC = () => {
       
       if (error) throw error;
       
+      // Update locally for immediate UI feedback
       setOrders(orders.map(order => 
         order.id === orderId ? { ...order, status: newStatus } : order
       ));
       
       toast({
         title: "Order status updated",
-        description: `Order #${orderId} is now ${newStatus}`,
+        description: `Order #${orderId.substring(0, 8)} is now ${newStatus}`,
       });
     } catch (error) {
       console.error('Error updating order status:', error);
@@ -348,7 +450,7 @@ const OrderManagement: React.FC = () => {
                       
                       <div className="flex flex-wrap gap-2 mt-4">
                         <Badge variant="outline" className="text-xs">
-                          {order.orderType === 'pickup' ? 'Pickup' : order.orderType === 'dine-in' ? 'Dine-in' : 'Delivery'}
+                          {order.orderType === 'pickup' ? 'Pickup' : 'Dine-in'}
                         </Badge>
                         <Badge variant="outline" className="text-xs">
                           Scheduled: {formatTime(order.scheduledTime)}

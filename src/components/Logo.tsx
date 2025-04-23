@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MapPin } from 'lucide-react';
+import { UtensilsCrossed } from 'lucide-react';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -21,11 +21,11 @@ const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true }) => {
   return (
     <div className="flex items-center gap-2">
       <div className={`${logoSize[size]} flex items-center justify-center bg-food-orange rounded-full`}>
-        <MapPin size={size === "sm" ? 24 : size === "lg" ? 40 : 32} color="white" />
+        <UtensilsCrossed size={size === "sm" ? 24 : size === "lg" ? 40 : 32} color="white" />
       </div>
       {showText && (
         <span className={`font-heading font-bold ${textSize[size]} text-food-orange`}>
-          Foodies Nashik
+          Foodies
         </span>
       )}
     </div>

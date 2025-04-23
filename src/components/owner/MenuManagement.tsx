@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +29,8 @@ import {
 } from '@/components/ui/card';
 import { toast } from '@/components/ui/use-toast';
 import { Edit, Trash, Plus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MenuItem {
   id: string;
@@ -36,52 +38,27 @@ interface MenuItem {
   description: string;
   price: number;
   category: string;
-  image: string;
-  isAvailable: boolean;
+  image_url: string;
+  is_available: boolean;
+  restaurant_id: string;
 }
 
 const MenuManagement: React.FC = () => {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([
-    {
-      id: '1',
-      name: 'Paneer Butter Masala',
-      description: 'Creamy paneer curry with rich tomato gravy and butter.',
-      price: 249,
-      category: 'Main Course',
-      image: 'https://images.unsplash.com/photo-1505253758473-96b7015fcd40?ixid=MnwxMjA3fDB8MHxzZWFyY2h8NDZ8fGluZGlhbiUyMGZvb2R8ZW58MHx8MHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-      isAvailable: true,
-    },
-    {
-      id: '2',
-      name: 'Masala Dosa',
-      description: 'Crispy rice crepe filled with spiced potato filling.',
-      price: 149,
-      category: 'Breakfast',
-      image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?ixid=MnwxMjA3fDB8MHxzZWFyY2h8MjB8fGRvc2F8ZW58MHx8MHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-      isAvailable: true,
-    },
-    {
-      id: '3',
-      name: 'Chicken Biryani',
-      description: 'Fragrant basmati rice cooked with marinated chicken and aromatic spices.',
-      price: 299,
-      category: 'Main Course',
-      image: 'https://images.unsplash.com/photo-1563379926898-05f4575a45d8?ixid=MnwxMjA3fDB8MHxzZWFyY2h8NHx8YmlyeWFuaXxlbnwwfHwwfHw%3D&ixlib=rb-1.2.1&auto=format&fit=crop&w=500&q=60',
-      isAvailable: false,
-    },
-  ]);
-  
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentItem, setCurrentItem] = useState<MenuItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const { user } = useAuth();
   
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: '',
     category: '',
-    image: '',
-    isAvailable: true,
+    image_url: '',
+    is_available: true,
   });
   
   const categories = [
@@ -92,14 +69,115 @@ const MenuManagement: React.FC = () => {
     'Beverages'
   ];
   
+  // Get restaurant id for logged-in owner
+  useEffect(() => {
+    if (user) {
+      getRestaurantId();
+    }
+  }, [user]);
+  
+  // Fetch menu items when restaurant ID is available
+  useEffect(() => {
+    if (restaurantId) {
+      fetchMenuItems();
+      // Set up real-time listener for menu changes
+      setupMenuListener();
+    }
+  }, [restaurantId]);
+  
+  const getRestaurantId = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('restaurants')
+        .select('id')
+        .eq('owner_id', user?.id)
+        .single();
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        setRestaurantId(data.id);
+      }
+    } catch (error) {
+      console.error('Error fetching restaurant ID:', error);
+      toast({
+        title: "Error",
+        description: "Could not find your restaurant. Please set up your restaurant first.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const fetchMenuItems = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('*')
+        .eq('restaurant_id', restaurantId)
+        .order('category', { ascending: true });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data) {
+        setMenuItems(data);
+      }
+    } catch (error) {
+      console.error('Error fetching menu items:', error);
+      toast({
+        title: "Error fetching menu",
+        description: "Failed to load menu items.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const setupMenuListener = () => {
+    const channel = supabase
+      .channel('menu-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'menu_items',
+          filter: `restaurant_id=eq.${restaurantId}`,
+        },
+        (payload) => {
+          console.log('Menu change detected:', payload);
+          
+          // Refresh the menu items
+          fetchMenuItems();
+          
+          // Notify about the change
+          toast({
+            title: "Menu Updated",
+            description: "The menu has been updated and is now visible to all customers.",
+            duration: 3000,
+          });
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
+  
   const resetForm = () => {
     setFormData({
       name: '',
       description: '',
       price: '',
       category: '',
-      image: '',
-      isAvailable: true,
+      image_url: '',
+      is_available: true,
     });
     setIsEditing(false);
     setCurrentItem(null);
@@ -115,33 +193,72 @@ const MenuManagement: React.FC = () => {
     setCurrentItem(item);
     setFormData({
       name: item.name,
-      description: item.description,
+      description: item.description || '',
       price: item.price.toString(),
-      category: item.category,
-      image: item.image,
-      isAvailable: item.isAvailable,
+      category: item.category || '',
+      image_url: item.image_url || '',
+      is_available: item.is_available,
     });
     setIsDialogOpen(true);
   };
   
-  const handleDeleteItem = (id: string) => {
-    setMenuItems(menuItems.filter(item => item.id !== id));
-    toast({
-      title: "Item deleted",
-      description: "Menu item has been removed successfully",
-    });
+  const handleDeleteItem = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('menu_items')
+        .delete()
+        .eq('id', id);
+        
+      if (error) {
+        throw error;
+      }
+      
+      setMenuItems(menuItems.filter(item => item.id !== id));
+      toast({
+        title: "Item deleted",
+        description: "Menu item has been removed successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting menu item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete menu item",
+        variant: "destructive",
+      });
+    }
   };
   
-  const handleAvailabilityToggle = (id: string) => {
-    setMenuItems(menuItems.map(item => 
-      item.id === id ? { ...item, isAvailable: !item.isAvailable } : item
-    ));
-    
-    const item = menuItems.find(item => item.id === id);
-    toast({
-      title: `Item ${item?.isAvailable ? 'unavailable' : 'available'}`,
-      description: `${item?.name} is now ${item?.isAvailable ? 'unavailable' : 'available'} for ordering`,
-    });
+  const handleAvailabilityToggle = async (id: string) => {
+    try {
+      const item = menuItems.find(item => item.id === id);
+      if (!item) return;
+      
+      const { error } = await supabase
+        .from('menu_items')
+        .update({ is_available: !item.is_available })
+        .eq('id', id);
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Update locally for immediate UI feedback
+      setMenuItems(menuItems.map(item => 
+        item.id === id ? { ...item, is_available: !item.is_available } : item
+      ));
+      
+      toast({
+        title: `Item ${item.is_available ? 'unavailable' : 'available'}`,
+        description: `${item.name} is now ${item.is_available ? 'unavailable' : 'available'} for ordering`,
+      });
+    } catch (error) {
+      console.error('Error updating item availability:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update item availability",
+        variant: "destructive",
+      });
+    }
   };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -150,14 +267,14 @@ const MenuManagement: React.FC = () => {
   };
   
   const handleSwitchChange = (checked: boolean) => {
-    setFormData(prev => ({ ...prev, isAvailable: checked }));
+    setFormData(prev => ({ ...prev, is_available: checked }));
   };
   
   const handleSelectChange = (value: string) => {
     setFormData(prev => ({ ...prev, category: value }));
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name || !formData.price || !formData.category) {
@@ -169,45 +286,63 @@ const MenuManagement: React.FC = () => {
       return;
     }
     
-    if (isEditing && currentItem) {
-      // Update existing item
-      setMenuItems(menuItems.map(item => 
-        item.id === currentItem.id ? {
-          ...item,
-          name: formData.name,
-          description: formData.description,
-          price: parseFloat(formData.price),
-          category: formData.category,
-          image: formData.image || item.image,
-          isAvailable: formData.isAvailable,
-        } : item
-      ));
-      
+    if (!restaurantId) {
       toast({
-        title: "Item updated",
-        description: `${formData.name} has been updated successfully`,
+        title: "Error",
+        description: "Restaurant ID not found",
+        variant: "destructive",
       });
-    } else {
-      // Add new item
-      const newItem: MenuItem = {
-        id: Date.now().toString(),
-        name: formData.name,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        category: formData.category,
-        image: formData.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=500',
-        isAvailable: formData.isAvailable,
-      };
-      
-      setMenuItems([...menuItems, newItem]);
-      
-      toast({
-        title: "Item added",
-        description: `${formData.name} has been added to your menu`,
-      });
+      return;
     }
     
-    handleDialogClose();
+    try {
+      const menuItemData = {
+        name: formData.name,
+        description: formData.description,
+        price: Number(formData.price),
+        category: formData.category,
+        image_url: formData.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=500',
+        is_available: formData.is_available,
+        restaurant_id: restaurantId
+      };
+      
+      if (isEditing && currentItem) {
+        // Update existing item
+        const { error } = await supabase
+          .from('menu_items')
+          .update(menuItemData)
+          .eq('id', currentItem.id);
+          
+        if (error) throw error;
+        
+        toast({
+          title: "Item updated",
+          description: `${formData.name} has been updated successfully`,
+        });
+      } else {
+        // Add new item
+        const { error } = await supabase
+          .from('menu_items')
+          .insert(menuItemData);
+          
+        if (error) throw error;
+        
+        toast({
+          title: "Item added",
+          description: `${formData.name} has been added to your menu`,
+        });
+      }
+      
+      handleDialogClose();
+      // No need to fetch menu items here as the real-time listener will update the UI
+    } catch (error) {
+      console.error('Error saving menu item:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save menu item",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -286,11 +421,11 @@ const MenuManagement: React.FC = () => {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="image">Image URL</Label>
+                <Label htmlFor="image_url">Image URL</Label>
                 <Input 
-                  id="image"
-                  name="image"
-                  value={formData.image}
+                  id="image_url"
+                  name="image_url"
+                  value={formData.image_url}
                   onChange={handleInputChange}
                   placeholder="Paste image URL here..."
                 />
@@ -299,7 +434,7 @@ const MenuManagement: React.FC = () => {
               <div className="flex items-center space-x-2">
                 <Switch 
                   id="availability" 
-                  checked={formData.isAvailable}
+                  checked={formData.is_available}
                   onCheckedChange={handleSwitchChange}
                 />
                 <Label htmlFor="availability">Available for ordering</Label>
@@ -318,71 +453,77 @@ const MenuManagement: React.FC = () => {
         </Dialog>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {menuItems.map((item) => (
-          <Card key={item.id} className={`overflow-hidden ${!item.isAvailable ? 'opacity-75' : ''}`}>
-            <div className="h-48 w-full overflow-hidden">
-              <img 
-                src={item.image} 
-                alt={item.name} 
-                className="w-full h-full object-cover transition-transform hover:scale-105"
-              />
-            </div>
-            
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-xl">{item.name}</CardTitle>
-                  <CardDescription className="text-food-orange font-semibold">
-                    ₹{item.price.toFixed(2)}
-                  </CardDescription>
-                </div>
-                <div className="flex items-center">
-                  <Switch 
-                    checked={item.isAvailable}
-                    onCheckedChange={() => handleAvailabilityToggle(item.id)}
-                    className="data-[state=checked]:bg-green-500"
-                  />
-                </div>
-              </div>
-            </CardHeader>
-            
-            <CardContent>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
-                  {item.category}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {item.isAvailable ? 'Available' : 'Unavailable'}
-                </span>
-              </div>
-              <p className="text-gray-600 text-sm line-clamp-2">{item.description}</p>
-            </CardContent>
-            
-            <CardFooter className="flex justify-end space-x-2">
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={() => handleEditItem(item)}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                className="text-red-500 hover:text-red-700"
-                onClick={() => handleDeleteItem(item.id)}
-              >
-                <Trash className="h-4 w-4" />
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
-      
-      {menuItems.length === 0 && (
+      {loading ? (
         <div className="bg-gray-50 rounded-lg p-8 text-center">
-          <p className="text-gray-500">No menu items found. Add your first dish!</p>
+          <p className="text-gray-500">Loading menu items...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {menuItems.map((item) => (
+            <Card key={item.id} className={`overflow-hidden ${!item.is_available ? 'opacity-75' : ''}`}>
+              <div className="h-48 w-full overflow-hidden">
+                <img 
+                  src={item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80&w=500'} 
+                  alt={item.name} 
+                  className="w-full h-full object-cover transition-transform hover:scale-105"
+                />
+              </div>
+              
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-xl">{item.name}</CardTitle>
+                    <CardDescription className="text-food-orange font-semibold">
+                      ₹{item.price.toFixed(2)}
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center">
+                    <Switch 
+                      checked={item.is_available}
+                      onCheckedChange={() => handleAvailabilityToggle(item.id)}
+                      className="data-[state=checked]:bg-green-500"
+                    />
+                  </div>
+                </div>
+              </CardHeader>
+              
+              <CardContent>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
+                    {item.category}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {item.is_available ? 'Available' : 'Unavailable'}
+                  </span>
+                </div>
+                <p className="text-gray-600 text-sm line-clamp-2">{item.description}</p>
+              </CardContent>
+              
+              <CardFooter className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => handleEditItem(item)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  className="text-red-500 hover:text-red-700"
+                  onClick={() => handleDeleteItem(item.id)}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+          
+          {menuItems.length === 0 && (
+            <div className="col-span-3 bg-gray-50 rounded-lg p-8 text-center">
+              <p className="text-gray-500">No menu items found. Add your first dish!</p>
+            </div>
+          )}
         </div>
       )}
     </div>
