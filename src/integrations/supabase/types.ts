@@ -106,18 +106,15 @@ export type Database = {
       orders: {
         Row: {
           created_at: string
-          delivery_address: string | null
           id: string
           items: Json
           mobile_number: string | null
-          notes: string | null
           order_date: string
           payment_method: string | null
           payment_status: string | null
           restaurant_id: string
           scheduled_time: string
           status: string | null
-          table_number: string | null
           total_amount: number
           type: string
           upi_id: string | null
@@ -127,18 +124,15 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          delivery_address?: string | null
           id?: string
           items: Json
           mobile_number?: string | null
-          notes?: string | null
           order_date?: string
           payment_method?: string | null
           payment_status?: string | null
           restaurant_id: string
           scheduled_time: string
           status?: string | null
-          table_number?: string | null
           total_amount: number
           type: string
           upi_id?: string | null
@@ -148,18 +142,15 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          delivery_address?: string | null
           id?: string
           items?: Json
           mobile_number?: string | null
-          notes?: string | null
           order_date?: string
           payment_method?: string | null
           payment_status?: string | null
           restaurant_id?: string
           scheduled_time?: string
           status?: string | null
-          table_number?: string | null
           total_amount?: number
           type?: string
           upi_id?: string | null

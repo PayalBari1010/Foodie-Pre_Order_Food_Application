@@ -102,17 +102,11 @@ const Checkout = () => {
         isAvailable: item.isAvailable
       }));
       
-      const restaurantId = cartItems[0]?.restaurantId;
-      
-      if (!restaurantId || typeof restaurantId !== 'string') {
-        throw new Error("Invalid or missing restaurant ID");
-      }
-      
       const { data, error } = await supabase
         .from('orders')
         .insert({
           user_id: user.id,
-          restaurant_id: restaurantId,
+          restaurant_id: cartItems[0].restaurantId,
           items: itemsForStorage,
           total_amount: totalPayable,
           payment_method: paymentMethod,
