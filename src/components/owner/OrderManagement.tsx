@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -46,17 +45,14 @@ const OrderManagement: React.FC = () => {
   const { user } = useAuth();
   
   useEffect(() => {
-    // Get restaurant ID for the logged-in owner
     if (user) {
       getRestaurantId();
     }
   }, [user]);
   
   useEffect(() => {
-    // Fetch orders when restaurant ID is available
     if (restaurantId) {
       fetchOrders();
-      // Setup real-time subscription for new orders
       setupOrdersSubscription();
     }
   }, [restaurantId]);
@@ -86,13 +82,12 @@ const OrderManagement: React.FC = () => {
   const setupOrdersSubscription = () => {
     if (!restaurantId) return;
     
-    // Setup real-time subscription for new orders
     const channel = supabase
       .channel('orders-channel')
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
+          event: '*',
           schema: 'public',
           table: 'orders',
           filter: `restaurant_id=eq.${restaurantId}`,
@@ -100,7 +95,6 @@ const OrderManagement: React.FC = () => {
         (payload) => {
           console.log('Order change detected:', payload);
           
-          // Handle different event types
           switch (payload.eventType) {
             case 'INSERT':
               handleNewOrder(payload.new);
@@ -122,12 +116,10 @@ const OrderManagement: React.FC = () => {
   };
   
   const parseOrderItems = (items: any): OrderItem[] => {
-    // If items is already an array of OrderItem objects, return it
     if (Array.isArray(items) && items.length > 0 && typeof items[0] === 'object' && 'name' in items[0]) {
       return items as OrderItem[];
     }
     
-    // If items is a string, try to parse it as JSON
     if (typeof items === 'string') {
       try {
         const parsedItems = JSON.parse(items);
@@ -139,16 +131,13 @@ const OrderManagement: React.FC = () => {
       }
     }
     
-    // If all else fails, return an empty array
     return [];
   };
   
   const handleNewOrder = (newOrderData: any) => {
     try {
-      // Parse items using our helper function
       const orderItems = parseOrderItems(newOrderData.items);
       
-      // Map Supabase order to our Order interface
       const formattedOrder: Order = {
         id: newOrderData.id,
         customerName: newOrderData.user_name || 'Customer',
@@ -161,24 +150,19 @@ const OrderManagement: React.FC = () => {
         paymentMethod: (newOrderData.payment_method || 'cod') as Order['paymentMethod'],
         paymentStatus: (newOrderData.payment_status || 'pending') as Order['paymentStatus'],
         createdAt: newOrderData.created_at || new Date().toISOString(),
-        table_number: newOrderData.table_number || null,
+        table_number: newOrderData.table_number ?? null,
       };
       
-      // Add new order to the state
       setOrders(prevOrders => {
-        // Check if order already exists
         if (prevOrders.some(order => order.id === formattedOrder.id)) {
           return prevOrders;
         }
-        // Add the new order
         return [formattedOrder, ...prevOrders];
       });
       
-      // Play notification sound for new orders
       const audio = new Audio('/notification.mp3');
       audio.play().catch(e => console.error('Could not play notification sound:', e));
       
-      // Show notification
       toast({
         title: "New Order Received!",
         description: `New ${formattedOrder.orderType} order from ${formattedOrder.customerName}`,
@@ -234,7 +218,6 @@ const OrderManagement: React.FC = () => {
       
       if (data && data.length > 0) {
         const formattedOrders: Order[] = data.map(order => {
-          // Parse items using our helper function
           const orderItems = parseOrderItems(order.items);
           
           return {
@@ -249,13 +232,12 @@ const OrderManagement: React.FC = () => {
             paymentMethod: (order.payment_method || 'cod') as Order['paymentMethod'],
             paymentStatus: (order.payment_status || 'pending') as Order['paymentStatus'],
             createdAt: order.created_at || new Date().toISOString(),
-            table_number: order.table_number || null,
+            table_number: order.table_number ?? null,
           };
         });
         
         setOrders(formattedOrders);
       } else {
-        // Load sample data if no orders from Supabase
         setOrders([
           {
             id: 'ORD001',
@@ -352,7 +334,6 @@ const OrderManagement: React.FC = () => {
       
       if (error) throw error;
       
-      // Update locally for immediate UI feedback
       setOrders(orders.map(order => 
         order.id === orderId ? { ...order, status: newStatus } : order
       ));
