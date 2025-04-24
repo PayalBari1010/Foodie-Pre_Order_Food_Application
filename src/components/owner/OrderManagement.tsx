@@ -121,24 +121,39 @@ const OrderManagement: React.FC = () => {
     };
   };
   
+  const parseOrderItems = (items: any): OrderItem[] => {
+    // If items is already an array of OrderItem objects, return it
+    if (Array.isArray(items) && items.length > 0 && typeof items[0] === 'object' && 'name' in items[0]) {
+      return items as OrderItem[];
+    }
+    
+    // If items is a string, try to parse it as JSON
+    if (typeof items === 'string') {
+      try {
+        const parsedItems = JSON.parse(items);
+        if (Array.isArray(parsedItems)) {
+          return parsedItems as OrderItem[];
+        }
+      } catch (e) {
+        console.error('Failed to parse order items:', e);
+      }
+    }
+    
+    // If all else fails, return an empty array
+    return [];
+  };
+  
   const handleNewOrder = (newOrderData: any) => {
     try {
-      // Parse items if it's a string
-      let orderItems = newOrderData.items;
-      if (typeof orderItems === 'string') {
-        try {
-          orderItems = JSON.parse(orderItems);
-        } catch (e) {
-          console.error('Failed to parse order items:', e);
-        }
-      }
+      // Parse items using our helper function
+      const orderItems = parseOrderItems(newOrderData.items);
       
       // Map Supabase order to our Order interface
       const formattedOrder: Order = {
         id: newOrderData.id,
         customerName: newOrderData.user_name || 'Customer',
         customerMobile: newOrderData.mobile_number || 'Not provided',
-        items: orderItems || [],
+        items: orderItems,
         total: newOrderData.total_amount || 0,
         status: (newOrderData.status || 'pending') as Order['status'],
         orderType: (newOrderData.type || 'pickup') as Order['orderType'],
@@ -218,24 +233,15 @@ const OrderManagement: React.FC = () => {
       }
       
       if (data && data.length > 0) {
-        const formattedOrders = data.map(order => {
-          const orderAny = order as any;
-          
-          // Parse items if it's a string
-          let orderItems = order.items;
-          if (typeof orderItems === 'string') {
-            try {
-              orderItems = JSON.parse(orderItems);
-            } catch (e) {
-              console.error('Failed to parse order items:', e);
-            }
-          }
+        const formattedOrders: Order[] = data.map(order => {
+          // Parse items using our helper function
+          const orderItems = parseOrderItems(order.items);
           
           return {
             id: order.id,
             customerName: order.user_name || 'Customer',
             customerMobile: order.mobile_number || 'Not provided',
-            items: orderItems || [],
+            items: orderItems,
             total: order.total_amount || 0,
             status: (order.status || 'pending') as Order['status'],
             orderType: (order.type || 'pickup') as Order['orderType'],
@@ -243,7 +249,7 @@ const OrderManagement: React.FC = () => {
             paymentMethod: (order.payment_method || 'cod') as Order['paymentMethod'],
             paymentStatus: (order.payment_status || 'pending') as Order['paymentStatus'],
             createdAt: order.created_at || new Date().toISOString(),
-            table_number: orderAny.table_number || null,
+            table_number: order.table_number || null,
           };
         });
         
