@@ -217,24 +217,20 @@ const OrderManagement: React.FC = () => {
       }
       
       if (data && data.length > 0) {
-        const formattedOrders: Order[] = data.map(order => {
-          const orderItems = parseOrderItems(order.items);
-          
-          return {
-            id: order.id,
-            customerName: order.user_name || 'Customer',
-            customerMobile: order.mobile_number || 'Not provided',
-            items: orderItems,
-            total: order.total_amount || 0,
-            status: (order.status || 'pending') as Order['status'],
-            orderType: (order.type || 'pickup') as Order['orderType'],
-            scheduledTime: order.scheduled_time || new Date().toISOString(),
-            paymentMethod: (order.payment_method || 'cod') as Order['paymentMethod'],
-            paymentStatus: (order.payment_status || 'pending') as Order['paymentStatus'],
-            createdAt: order.created_at || new Date().toISOString(),
-            table_number: order.table_number ?? null,
-          };
-        });
+        const formattedOrders: Order[] = data.map(order => ({
+          id: order.id,
+          customerName: order.user_name || 'Customer',
+          customerMobile: order.mobile_number || 'Not provided',
+          items: parseOrderItems(order.items),
+          total: order.total_amount || 0,
+          status: (order.status || 'pending') as Order['status'],
+          orderType: (order.type || 'pickup') as Order['orderType'],
+          scheduledTime: order.scheduled_time || new Date().toISOString(),
+          paymentMethod: (order.payment_method || 'cod') as Order['paymentMethod'],
+          paymentStatus: (order.payment_status || 'pending') as Order['paymentStatus'],
+          createdAt: order.created_at || new Date().toISOString(),
+          table_number: order.table_number ?? null,
+        }));
         
         setOrders(formattedOrders);
       } else {
