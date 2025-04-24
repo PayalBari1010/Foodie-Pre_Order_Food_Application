@@ -110,6 +110,7 @@ export type Database = {
           id: string
           items: Json
           mobile_number: string | null
+          notes: string | null
           order_date: string
           payment_method: string | null
           payment_status: string | null
@@ -130,6 +131,7 @@ export type Database = {
           id?: string
           items: Json
           mobile_number?: string | null
+          notes?: string | null
           order_date?: string
           payment_method?: string | null
           payment_status?: string | null
@@ -150,6 +152,7 @@ export type Database = {
           id?: string
           items?: Json
           mobile_number?: string | null
+          notes?: string | null
           order_date?: string
           payment_method?: string | null
           payment_status?: string | null
