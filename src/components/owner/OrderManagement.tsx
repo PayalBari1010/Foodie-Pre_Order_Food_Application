@@ -29,7 +29,7 @@ interface Order {
   items: OrderItem[];
   total: number;
   status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
-  orderType: 'pickup' | 'dine-in';
+  orderType: 'pickup' | 'dine-in' | 'delivery';
   scheduledTime: string;
   paymentMethod: 'upi' | 'cod';
   paymentStatus: 'paid' | 'pending';
