@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerHeader from '@/components/customer/CustomerHeader';
@@ -97,7 +96,6 @@ const Checkout = () => {
       return;
     }
     
-    // If QR code payment is shown but verification hasn't happened yet
     if (paymentMethod === 'QR' && showQrCode && !upiTransactionId) {
       toast({
         title: "Payment verification required",
@@ -395,14 +393,14 @@ const Checkout = () => {
                           </div>
                           <span className="text-xl">PhonePe</span>
                         </div>
-                        <div className="text-purple-500 mb-2 text-xl font-bold">ACCEPTED HERE</div>
-                        <div className="text-white mb-4">Scan & Pay Using PhonePe App</div>
+                        <div className="text-purple-500 mb-2 text-xl font-bold">SCAN & PAY</div>
+                        <div className="text-white mb-4">Use any UPI app to pay</div>
                         <img 
-                          src="/lovable-uploads/fcdd1f8e-025d-449d-9e2c-920eba13919d.png" 
+                          src="/lovable-uploads/2b330ef9-1332-4a52-b54d-301242d660fb.png" 
                           alt="PhonePe QR Code"
                           className="w-64 h-64"
                         />
-                        <div className="mt-2">******1339</div>
+                        <div className="mt-2">UPI ID: merchant@phonepay</div>
                       </div>
                     </div>
                     
@@ -526,14 +524,14 @@ const Checkout = () => {
                 </div>
                 <span className="text-xl">PhonePe</span>
               </div>
-              <div className="text-purple-500 mb-2 text-xl font-bold">ACCEPTED HERE</div>
-              <div className="text-white mb-4">Scan & Pay Using PhonePe App</div>
+              <div className="text-purple-500 mb-2 text-xl font-bold">SCAN & PAY</div>
+              <div className="text-white mb-4">Use any UPI app to pay</div>
               <img 
-                src="/lovable-uploads/fcdd1f8e-025d-449d-9e2c-920eba13919d.png" 
+                src="/lovable-uploads/2b330ef9-1332-4a52-b54d-301242d660fb.png" 
                 alt="PhonePe QR Code"
                 className="w-64 h-64"
               />
-              <div className="mt-2">******1339</div>
+              <div className="mt-2">UPI ID: merchant@phonepay</div>
             </div>
             <p className="text-sm text-gray-500 mt-4">
               After payment, please enter the transaction ID to complete your order.
