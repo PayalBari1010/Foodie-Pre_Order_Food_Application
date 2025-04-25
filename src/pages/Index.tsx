@@ -7,12 +7,14 @@ import AuthForm from '@/components/auth/AuthForm';
 import CustomerDashboard from '@/components/customer/CustomerDashboard';
 import OwnerDashboard from '@/components/owner/OwnerDashboard';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   // App state machine
   const [appState, setAppState] = useState<'splash' | 'role-selection' | 'auth' | 'dashboard'>('splash');
   const [userRole, setUserRole] = useState<'customer' | 'owner' | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const navigate = useNavigate();
   
   // Check if user is already authenticated
   useEffect(() => {
@@ -34,7 +36,9 @@ const Index = () => {
           setUserRole('customer');
         }
         
-        setAppState('dashboard');
+        // Important: Even if the user is authenticated, we'll always show the role selection first
+        // This ensures users can switch between customer and restaurant owner views
+        setAppState('role-selection');
       }
     };
     
@@ -58,7 +62,13 @@ const Index = () => {
   
   const handleRoleSelection = (role: 'customer' | 'owner') => {
     setUserRole(role);
-    setAppState('auth');
+    
+    // If the user is already authenticated, go directly to dashboard with the selected role
+    if (isAuthenticated) {
+      setAppState('dashboard');
+    } else {
+      setAppState('auth');
+    }
   };
   
   const handleAuthSuccess = () => {
@@ -69,6 +79,43 @@ const Index = () => {
   const handleRoleChange = () => {
     setUserRole(userRole === 'customer' ? 'owner' : 'customer');
   };
+  
+  // Setup real-time channel for restaurant menu updates
+  useEffect(() => {
+    const menuChannel = supabase
+      .channel('menu-updates')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'menu_items' 
+        },
+        (payload) => {
+          console.log('Menu item changed:', payload);
+          // The real-time update will be handled in the specific components
+        })
+      .subscribe();
+      
+    // Setup real-time channel for order notifications
+    const orderChannel = supabase
+      .channel('order-updates')
+      .on('postgres_changes', 
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'orders' 
+        },
+        (payload) => {
+          console.log('New order received:', payload);
+          // The real-time update will be handled in the OrderManagement component
+        })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(menuChannel);
+      supabase.removeChannel(orderChannel);
+    };
+  }, []);
 
   return (
     <AnimatePresence mode="wait">

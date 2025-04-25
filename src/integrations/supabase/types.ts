@@ -106,10 +106,10 @@ export type Database = {
       orders: {
         Row: {
           created_at: string
-          delivery_address: string | null
           id: string
           items: Json
           mobile_number: string | null
+          notes: string | null
           order_date: string
           payment_method: string | null
           payment_status: string | null
@@ -126,10 +126,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          delivery_address?: string | null
           id?: string
           items: Json
           mobile_number?: string | null
+          notes?: string | null
           order_date?: string
           payment_method?: string | null
           payment_status?: string | null
@@ -146,10 +146,10 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          delivery_address?: string | null
           id?: string
           items?: Json
           mobile_number?: string | null
+          notes?: string | null
           order_date?: string
           payment_method?: string | null
           payment_status?: string | null
@@ -256,6 +256,7 @@ export type Database = {
           price_range: string | null
           rating: number | null
           rating_count: number | null
+          upi_id: string | null
         }
         Insert: {
           address: string
@@ -275,6 +276,7 @@ export type Database = {
           price_range?: string | null
           rating?: number | null
           rating_count?: number | null
+          upi_id?: string | null
         }
         Update: {
           address?: string
@@ -294,6 +296,7 @@ export type Database = {
           price_range?: string | null
           rating?: number | null
           rating_count?: number | null
+          upi_id?: string | null
         }
         Relationships: [
           {
